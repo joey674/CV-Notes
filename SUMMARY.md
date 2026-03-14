@@ -1,4 +1,8 @@
 # Table of contents
 
-* [NeRF](README.md)
-* [3DGS](3dgs.md)
+## NVS
+
+* [Intro](README.md)
+* [3DGS](nvs/3dgs.md)
+* [NeRF](nvs/nerf.md)
+* [Page 1](nvs/page-1.md)
