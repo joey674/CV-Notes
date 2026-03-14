@@ -1,7 +1,3 @@
----
-description: NeRF
----
-
 # NeRF
 
 ## NeRF
