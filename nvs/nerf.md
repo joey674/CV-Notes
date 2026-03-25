@@ -72,7 +72,6 @@ $$
 \rightarrow \hat{\mathbf{C}}(\mathbf{r})\in\mathbb{R}^3
 $$
 
----
 
 ## Step 1: 相机参数到射线
 这一步是把图片像素和3d坐标的关系联系起来; 本质意思就是我们并不是无脑构建一个神经网络去端到端地拟合, 而是先植入一些cv的几何关系
@@ -151,7 +150,6 @@ $$
 * `rays_o`: $(N_r,3)$
 * `rays_d`: $(N_r,3)$
 
----
 
 ## Step 2: Coarse Sampling 粗糙采样
 
@@ -246,7 +244,6 @@ $$
 * `pts`: $(N_r,N_c,3)$ 
     一样,某个射线 $(1-N_r)$ 的某个采样点 $(1-N_c)$ 的 3d坐标
 
----
 
 ## Step 3: Positional Encoding 位置编码
 
@@ -339,7 +336,6 @@ $$
 * `dirs`：$(N_r,N_c,C_d=27)$
    编码后采样点被观测方向
 
----
 
 ## Step 4: Coarse MLP 粗糙预测辐射场
 
@@ -395,7 +391,6 @@ $$
 * `sigma_coarse`: $(N_r,N_c,1)$ 
 * `rgb_coarse`: $(N_r,N_c,3)$
 
----
 
 ## Step 5: Coarse Volume Rendering 粗糙体渲染
 
@@ -473,7 +468,6 @@ $$ -->
    每条射线的最终体渲染颜色
 
 
----
 
 ## Step 6: Fine Sampling 精细采样
 
@@ -536,10 +530,10 @@ $$
 
 假设总采样点数 $N=N_c+N_f$：
 
-* `z_vals_fine`: $(N_r,N,1)$
-* `pts_fine`: $(N_r,N,3)$
+* `z_vals_CoarseAndFine`: $(N_r,N,1)$
+* `pts_CoarseAndFine`: $(N_r,N,3)$
 
----
+
 <!-- ########################################## -->
 ## Step 7: Fine MLP 精细预测辐射场
 
@@ -556,17 +550,15 @@ coarse 是先粗略扫一遍, fine 是把更多计算资源放在疑似表面附
 
 ### 输入
 
-* `pts_fine`：$(N_r,N,C_x)$
-   编码后位置
-* `dirs`：$(N_r,N,C_d)$
-   编码后方向; 两次采样只是对点进行采样, 方向不用; 所以沿用之前的就行
+* `pts_CoarseAndFine`：$(N_r,N,C_x)$ 编码后位置
+* `dirs`：$(N_r,N,C_d)$ 编码后方向; 两次采样只是对点进行采样, 方向不用; 所以沿用之前的就行
 
 ### 输出
 
-* `rgb_fine`: $(N_r,N,3)$
-* `sigma_fine`: $(N_r,N,1)$ 
+* `rgb_CoarseAndFine`: $(N_r,N,3)$ 所有采样点的颜色
+* `sigma_CoarseAndFine`: $(N_r,N,1)$ 所有采样点的透明度
 
----
+
 <!-- ########################################## -->
 ## Step 8: Fine Volume Rendering 体渲染得到最终像素颜色
 
@@ -589,20 +581,20 @@ $$
 $$
 
 这一步和 Step 5 的公式本质一样, 只不过现在用的是更密集、更准确的采样结果;  
-所以最后得到的 `rgb_map_fine` 才通常被当作最终输出。
+所以最后得到的 `rgb_map_CoarseAndFine` 才通常被当作最终输出。
 
 ### 输出
 
-* 每条射线最终颜色：`rgb_map_fine`: $(N_r,3)$
+* 每条射线最终颜色：`rgb_map_CoarseAndFine`: $(N_r,3)$
 * 整张图像重排后：`image`: $(H,W,3)$
 
----
+
 <!-- ########################################## -->
 ## Step 9: 训练目标
 
 训练时，有真实图像像素颜色 $\mathbf{C}(\mathbf{r})$，也有预测颜色 $\hat{\mathbf{C}}(\mathbf{r})$。
 
-原始 NeRF 一般同时监督 coarse 和 fine：
+原始 NeRF 一般同时监督 coarse 和 CoarseAndFine：
 
 $$
 \mathcal{L} =
@@ -613,14 +605,14 @@ $$
 +
 \sum_{\mathbf{r}\in\mathcal{R}}
 \left\|
-\hat{\mathbf{C}}_{fine}(\mathbf{r})-\mathbf{C}(\mathbf{r})
+\hat{\mathbf{C}}_{CoarseAndFine}(\mathbf{r})-\mathbf{C}(\mathbf{r})
 \right\|_2^2
 $$
 
 ### 输入
 
 * `rgb_map_coarse`: $(N_r,3)$
-* `rgb_map_fine`: $(N_r,3)$
+* `rgb_map_CoarseAndFine`: $(N_r,3)$
 * `target_rgb`: $(N_r,3)$
 
 ### 输出
@@ -630,12 +622,10 @@ $$
 这里也就是说:
 
 * coarse 不能乱预测, 因为它自己也要被监督
-* fine 负责最终更精细的结果
+* CoarseAndFine 负责最终更精细的结果
 
 所以整个训练是 end-to-end 的;  
-从最终 loss 反向传播时, coarse / fine / 位置编码前的所有可学习参数都会一起更新。
-
----
+从最终 loss 反向传播时, coarse / CoarseAndFine / 位置编码前的所有可学习参数都会一起更新。
 
 ## 从“单个像素”到“整张图片”的函数链路
 
@@ -657,6 +647,6 @@ $$
 8. fine 网络输出：
    $(H\times W,N_c+N_f,3)$ 和 $(H\times W,N_c+N_f)$
 9. fine 渲染：
-   `rgb_map_fine` $(H\times W,3)$
+   `rgb_map_CoarseAndFine` $(H\times W,3)$
 10. reshape 回图像：
    `image` $(H,W,3)$
