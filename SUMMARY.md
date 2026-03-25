@@ -5,7 +5,7 @@
 * [Intro](README.md)
 * [3DGS](nvs/3dgs.md)
 * [NeRF](nvs/nerf.md)
-* [Page 1](nvs/page-1.md)
+* [3DGS-DA3](nvs/3dgs-da3.md)
 
 ## 3D Recon
 
