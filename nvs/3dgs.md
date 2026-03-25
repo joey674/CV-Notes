@@ -215,155 +215,34 @@ $$
 
 和生成点云 渲染点云类似; 只是这里我们的点云比较不一样,需要特殊的获取方法(通过反向传播训练, 但不是深度学习的方式),以及特殊的渲染方法;&#x20;
 
-***
+**训练中的 forward = “可微分渲染”**\
+**推理/展示时的 render = “只渲染，不回传梯度”**
 
-**整体流程**
+## 前向可微渲染: Step1 初始化成高斯场景
 
-而一次训练前向过程则是:
+输入: 视角图像 以及相机对应位姿; 通过sfm方式先得到稀疏点云; 基于这个点云, 初始化成高斯椭球; 相当于是给场景进行一个高斯表示的初始化
 
-$$
-(K,T_{w2c},H,W,\mathcal{G})
-\rightarrow
-\{\mu_{c,i},\Sigma_{c,i}\}_{i=1}^{M}
-\rightarrow
-\{u_i,\Sigma_{2D,i}\}_{i=1}^{M}
-\rightarrow
-\hat I
-$$
+## 前向可微渲染: Step2 坐标变换
 
-直观上就是:
+这一步描述了一个高斯椭球如何投影到图像上;
 
-1. 先用多视角图像、位姿和内参把场景初始化成 Gaussian 场景
-2. 再把这些 Gaussian 从当前相机视角投影到像素平面, 得到渲染图像
-3. 最后拿渲染图和 GT 做损失, 反向更新 Gaussian 参数; 训练好后再渲染新视角图像
+<figure><img src="../.gitbook/assets/{A569CC54-339B-467D-BD24-3301549DAD08}.png" alt=""><figcaption></figcaption></figure>
 
-## Step1 初始化成高斯场景
+对于高斯椭球的均值和协方差矩阵如何变换:&#x20;
 
-3DGS 一开始把场景写成一堆显式的 3D Gaussian。
+相机变换
 
-**输入**
+投影变换; 为什么引入雅可比
 
-训练集通常包含:
-
-* 图像张量可以记为 $\mathrm{images}\in\mathbb{R}^{N\_v\times H\times W\times 3}$
-* 位姿张量可以记为 $\mathrm{poses}\in\mathbb{R}^{N\_v\times 4\times 4}$
-* 内参张量可以记为 $\mathrm{intrinsics}\in\mathbb{R}^{N\_v\times 3\times 3}$, 如果所有相机共享内参, 也可以直接记成 $K\in\mathbb{R}^{3\times 3}$
-
-单个视角的数据分别记为 $I\_n\in\mathbb{R}^{H\times W\times 3}$、$T\_{w2c}^{(n)}\in\mathbb{R}^{4\times 4}$ 和 $K\_n\in\mathbb{R}^{3\times 3}$。
-
-原始 3DGS 实践里通常会先用 COLMAP / SfM 得到稀疏点云, 其中点坐标可以记为 $\mathrm{points\_xyz}\in\mathbb{R}^{M\_0\times 3}$, 点颜色可以记为 $\mathrm{points\_rgb}\in\mathbb{R}^{M\_0\times 3}$。
+视角变换
 
 ***
 
-**从稀疏点到 Gaussian**
+## 前向可微渲染: Step3 **Splatting 和 Alpha 合成**
 
-每个稀疏 3D 点都会初始化成一个 Gaussian。\
-批量看时, 高斯中心可以记为 $\mu\in\mathbb{R}^{M\_0\times 3}$, 旋转可以记为 $q\in\mathbb{R}^{M\_0\times 4}$, 尺度可以记为 $s\in\mathbb{R}^{M\_0\times 3}$, 透明度可以记为 $o\in\mathbb{R}^{M\_0\times 1}$, 颜色特征可以记为 $f\in\mathbb{R}^{M\_0\times C\_f}$。\
-如果采用 SH, 那么特征维度通常满足 $C\_f=3(L+1)^2$。
+这一步描述了这些高斯椭球最终是如何叠加渲染一张图片的
 
-其中中心直接来自点云位置:
-
-$$
-\mu_i\in\mathbb{R}^3
-$$
-
-协方差由旋转和缩放参数化:
-
-$$
-\Sigma_i=R(q_i)S(s_i)S(s_i)^TR(q_i)^T
-\in\mathbb{R}^{3\times 3}
-$$
-
-所以批量的协方差也可以记为 $\Sigma\in\mathbb{R}^{M\_0\times 3\times 3}$。\
-如果特征用 SH 表示颜色, 那么观察方向满足 $\mathbf{d}\in\mathbb{R}^3$, 并且颜色可以写成 $\mathbf{c}\_i(\mathbf{d})\in\mathbb{R}^3$。
-
-***
-
-**输出**
-
-这一步结束后, 场景就从“稀疏点云”变成了“高斯场景表示”:
-
-$$
-\mathcal{G}_0=\left\{(\mu_i,q_i,s_i,o_i,f_i)\right\}_{i=1}^{M_0}
-$$
-
-## Step2 从高斯到像素
-
-观察变换 $\rightarrow$ 投影变换 $\rightarrow$ 视口变换 / splatting。
-
-**输入**
-
-训练时先取一个视角, 它对应的真值图像、内参和外参分别记为 $I\_{gt}\in\mathbb{R}^{H\times W\times 3}$、$K\in\mathbb{R}^{3\times 3}$ 和 $T\_{w2c}\in\mathbb{R}^{4\times 4}$。\
-同时取当前高斯场景参数 $\mu\in\mathbb{R}^{M\times 3}$、$\Sigma\in\mathbb{R}^{M\times 3\times 3}$、$o\in\mathbb{R}^{M\times 1}$ 和 $f\in\mathbb{R}^{M\times C\_f}$。
-
-***
-
-**观察变换: 世界坐标到相机坐标**
-
-设当前外参满足 $T\_{w2c}=\[R|t]$, 其中 $R\in\mathbb{R}^{3\times 3}$, $t\in\mathbb{R}^{3}$。
-
-对单个 Gaussian, 中心和协方差会变成:
-
-$$
-\mu_{c,i}=R\mu_i+t
-\in\mathbb{R}^3
-$$
-
-$$
-\Sigma_{c,i}=R\Sigma_iR^T
-\in\mathbb{R}^{3\times 3}
-$$
-
-批量看时, 变换后的中心和协方差可以分别记为 $\mu\_{\mathrm{cam\}}\in\mathbb{R}^{M\times 3}$ 和 $\Sigma\_{\mathrm{cam\}}\in\mathbb{R}^{M\times 3\times 3}$。
-
-***
-
-**投影变换: 3D Gaussian 到 2D Gaussian**
-
-记
-
-$$
-\mu_{c,i}=(x_i,y_i,z_i)^T
-$$
-
-先做透视除法:
-
-$$
-x_i^{norm}=\frac{x_i}{z_i},\qquad
-y_i^{norm}=\frac{y_i}{z_i}
-$$
-
-再乘上内参得到像素坐标:
-
-$$
-u_i=f_x\frac{x_i}{z_i}+c_x,\qquad
-v_i=f_y\frac{y_i}{z_i}+c_y
-$$
-
-于是单个 Gaussian 在屏幕上的中心是:
-
-$$
-\mathbf{u}_i=(u_i,v_i)^T\in\mathbb{R}^2
-$$
-
-同时, 3D 协方差会近似投到 2D:
-
-$$
-J_i=
-\left.\frac{\partial \pi}{\partial \mathbf{x}}\right|_{\mu_{c,i}}
-\in\mathbb{R}^{2\times 3}
-$$
-
-$$
-\Sigma_{2D,i}=J_i\Sigma_{c,i}J_i^T
-\in\mathbb{R}^{2\times 2}
-$$
-
-批量看时, 投影后的屏幕中心可以记为 $\mathbf{u}\in\mathbb{R}^{M\times 2}$, 深度可以记为 $\mathbf{z}\in\mathbb{R}^{M\times 1}$, 对应的 2D 协方差可以记为 $\Sigma\_{2D}\in\mathbb{R}^{M\times 2\times 2}$。
-
-***
-
-**Splatting 和 Alpha 合成**
+<figure><img src="../.gitbook/assets/{810DF6DC-DAA4-4A46-8F4D-B8A6BD52283C}.png" alt=""><figcaption></figcaption></figure>
 
 记某个像素位置为:
 
@@ -404,44 +283,17 @@ $$
 
 把所有像素拼起来, 就得到渲染图像 $\hat I\in\mathbb{R}^{H\times W\times 3}$。
 
-***
+## 前向可微渲染: Step4 并行化加速
 
-**输出**
+<figure><img src="../.gitbook/assets/{10A6FB2D-3A08-4562-AC4B-1C482A0CB555}.png" alt=""><figcaption></figcaption></figure>
 
-这一步的最终输出就是渲染图像 $\hat I\in\mathbb{R}^{H\times W\times 3}$。
+## 反向梯度传播训练
 
-也就是说, 3DGS 的前向其实就是:\
-一堆 3D Gaussian $\rightarrow$ 投影成 2D 椭圆 $\rightarrow$ 把颜色和透明度铺到像素上。
-
-***
-
-**Step3 训练与反向传播**
-
-前两步只是在说“怎么从场景渲染出图”;\
-这一步说的是“怎么把这些 Gaussian 学好”。
-
-***
-
-**输入**
-
-渲染图像记为 $\hat I\in\mathbb{R}^{H\times W\times 3}$, 真值图像记为 $I\_{gt}\in\mathbb{R}^{H\times W\times 3}$。
-
-***
-
-**图像损失**
-
-原始 3DGS 常见地使用:
+<figure><img src="../.gitbook/assets/{754E8C22-2258-4192-9897-E642F9029E65}.png" alt=""><figcaption></figcaption></figure>
 
 $$
 \mathcal{L}=(1-\lambda)\mathcal{L}_{L1}+\lambda\mathcal{L}_{D-SSIM}
 $$
-
-也就是同时看:
-
-* 像素级颜色差异
-* 结构相似性
-
-***
 
 **反向传播更新参数**
 
@@ -456,7 +308,17 @@ $$
 
 ***
 
+**颜色**
+
+**球谐函数阶数从0开始训练; 在迭代前期阶数上涨不快, 也就是更侧重于点的位置信息; 之后阶数开始增长, 更能准确显示颜色;**
+
+***
+
 **Densify 和 Prune**
+
+<figure><img src="../.gitbook/assets/{8BC0F003-E4DC-44B5-AFBF-3C6AC958AD91}.png" alt=""><figcaption></figcaption></figure>
+
+<figure><img src="../.gitbook/assets/{C89EF1C5-D853-463C-B4C3-9FBF3F2E0CF8}.png" alt=""><figcaption></figcaption></figure>
 
 3DGS 的另一个关键点是 Gaussian 数量不是固定的。
 
