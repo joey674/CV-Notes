@@ -1,0 +1,101 @@
+<svg width="1200" height="520" viewBox="0 0 1200 520" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#374151"/>
+    </marker>
+    <style>
+      .title { font: 700 22px Arial, sans-serif; fill: #111827; }
+      .label { font: 600 16px Arial, sans-serif; fill: #111827; }
+      .small { font: 500 13px Arial, sans-serif; fill: #374151; }
+      .tiny { font: 500 12px Arial, sans-serif; fill: #4B5563; }
+      .line { stroke: #374151; stroke-width: 3; fill: none; marker-end: url(#arrow); }
+      .dash { stroke: #7C3AED; stroke-width: 3; fill: none; stroke-dasharray: 10 8; }
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="1200" height="520" fill="#FFFDF8"/>
+  <text x="40" y="42" class="title">Diffusion U-Net Overview</text>
+
+  <rect x="42" y="185" width="120" height="110" rx="18" fill="#FDE68A" stroke="#D97706" stroke-width="2.5"/>
+  <text x="79" y="227" class="label">Input</text>
+  <text x="64" y="252" class="small">Noisy image</text>
+  <text x="87" y="273" class="small">or latent</text>
+
+  <rect x="235" y="110" width="150" height="90" rx="18" fill="#BFDBFE" stroke="#2563EB" stroke-width="2.5"/>
+  <text x="270" y="145" class="label">Down Block 1</text>
+  <text x="267" y="170" class="small">ResBlock + Conv</text>
+  <text x="272" y="190" class="tiny">high resolution</text>
+
+  <rect x="430" y="180" width="150" height="90" rx="18" fill="#93C5FD" stroke="#2563EB" stroke-width="2.5"/>
+  <text x="465" y="215" class="label">Down Block 2</text>
+  <text x="462" y="240" class="small">ResBlock + Attn</text>
+  <text x="467" y="260" class="tiny">mid resolution</text>
+
+  <rect x="625" y="250" width="150" height="90" rx="18" fill="#60A5FA" stroke="#2563EB" stroke-width="2.5"/>
+  <text x="660" y="285" class="label">Down Block 3</text>
+  <text x="657" y="310" class="small">ResBlock + Attn</text>
+  <text x="675" y="330" class="tiny">low resolution</text>
+
+  <rect x="850" y="185" width="160" height="110" rx="18" fill="#FBCFE8" stroke="#DB2777" stroke-width="2.5"/>
+  <text x="900" y="223" class="label">Mid Block</text>
+  <text x="877" y="248" class="small">Global mixing</text>
+  <text x="873" y="269" class="small">Self/Cross Attn</text>
+
+  <rect x="835" y="60" width="150" height="90" rx="18" fill="#C7D2FE" stroke="#4F46E5" stroke-width="2.5"/>
+  <text x="876" y="95" class="label">Up Block 3</text>
+  <text x="867" y="120" class="small">merge skip + up</text>
+  <text x="879" y="140" class="tiny">recover coarse layout</text>
+
+  <rect x="635" y="35" width="150" height="90" rx="18" fill="#A7F3D0" stroke="#059669" stroke-width="2.5"/>
+  <text x="676" y="70" class="label">Up Block 2</text>
+  <text x="667" y="95" class="small">merge skip + up</text>
+  <text x="684" y="115" class="tiny">recover structure</text>
+
+  <rect x="435" y="20" width="150" height="90" rx="18" fill="#86EFAC" stroke="#16A34A" stroke-width="2.5"/>
+  <text x="476" y="55" class="label">Up Block 1</text>
+  <text x="467" y="80" class="small">merge skip + up</text>
+  <text x="483" y="100" class="tiny">recover details</text>
+
+  <rect x="1035" y="185" width="120" height="110" rx="18" fill="#FECACA" stroke="#DC2626" stroke-width="2.5"/>
+  <text x="1067" y="227" class="label">Output</text>
+  <text x="1055" y="252" class="small">Predict eps</text>
+  <text x="1060" y="273" class="small">or x0 / v</text>
+
+  <rect x="355" y="400" width="180" height="72" rx="18" fill="#EDE9FE" stroke="#7C3AED" stroke-width="2.5"/>
+  <text x="385" y="430" class="label">Timestep Embedding</text>
+  <text x="401" y="453" class="small">sin/cos + MLP</text>
+
+  <rect x="640" y="400" width="190" height="72" rx="18" fill="#FEF3C7" stroke="#D97706" stroke-width="2.5"/>
+  <text x="699" y="430" class="label">Condition</text>
+  <text x="671" y="453" class="small">text / class / mask</text>
+
+  <path d="M163 240 L234 155" class="line"/>
+  <path d="M386 155 L429 217" class="line"/>
+  <path d="M581 225 L624 287" class="line"/>
+  <path d="M776 295 L849 240" class="line"/>
+  <path d="M1011 240 L1034 240" class="line"/>
+
+  <path d="M911 184 L910 151" class="line"/>
+  <path d="M835 105 L786 84" class="line"/>
+  <path d="M635 80 L586 65" class="line"/>
+  <path d="M435 65 L163 240" class="line"/>
+
+  <path d="M310 110 C310 45, 460 8, 510 20" class="dash"/>
+  <path d="M505 180 C560 95, 690 65, 710 35" class="dash"/>
+  <path d="M700 250 C780 145, 870 120, 910 60" class="dash"/>
+
+  <text x="248" y="82" class="small" fill="#7C3AED">skip</text>
+  <text x="548" y="44" class="small" fill="#7C3AED">skip</text>
+  <text x="808" y="92" class="small" fill="#7C3AED">skip</text>
+
+  <path d="M445 399 L445 320 C445 298, 332 298, 332 201" class="line"/>
+  <path d="M445 399 L505 320 C530 290, 505 270, 505 270" class="line"/>
+  <path d="M445 399 L700 350 C815 328, 930 295, 930 295" class="line"/>
+
+  <path d="M735 399 L735 330 C735 305, 700 305, 700 340" class="line"/>
+  <path d="M735 399 L735 280 C735 230, 910 230, 910 230" class="line"/>
+  <path d="M735 399 L735 110 C735 75, 710 75, 710 125" class="line"/>
+
+  <text x="285" y="505" class="tiny">Time embedding is injected into many residual blocks, not used just once.</text>
+  <text x="671" y="505" class="tiny">Condition features often enter attention layers to guide generation.</text>
+</svg>

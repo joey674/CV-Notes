@@ -200,25 +200,313 @@ $$
 
 然后再把它们组合成协方差矩阵。
 
+---
+**结论**
+
+* **高斯可以很好的表示一个3维椭球; 高斯均值表示椭球中心, 协方差矩阵显式表示旋转和缩放;** 
+* **这样在任意位置, 任意形状的椭球, 用高斯就可以完全表示**
+
+
 <!-- ############################### -->
 ## Overview
-整体流程
+可以把 3DGS 分成两个层次来看:
 
-<!-- ############################### -->
-## Step1 3D点到像素
-和NeRF不同, 3DGS从场景中的3D点的高斯表示开始
-<!-- ############################### -->
-## Step2
+1. **训练阶段**: 用多视角图片和相机参数, 学到一组能够表示场景的 3D Gaussians
+2. **渲染阶段**: 给定一个目标相机, 把这些 3D Gaussians 投影到 2D 图像平面, 再 splat 成最终图像
+
+如果把训练数据写成一个数据集:
+
+$$
+\mathcal{D}=\left\{(I_n,K_n,T_{w2c}^{(n)})\right\}_{n=1}^{N_v}
+$$
+
+其中:
+
+* $N_v$ 是视角数量
+* 第 $n$ 张 RGB 图像记为 $I_n\in\mathbb{R}^{H_n\times W_n\times 3}$
+* 相机内参记为 $K_n\in\mathbb{R}^{3\times 3}$
+* 世界坐标到相机坐标的外参记为 $T_{w2c}^{(n)}\in\mathbb{R}^{4\times 4}$
+
+如果所有图片分辨率一致, 整个图像张量也可以记成 $\mathrm{images}\in\mathbb{R}^{N_v\times H\times W\times 3}$。
+
+3DGS 学到的场景表示可以写成:
+
+$$
+\mathcal{G}=\left\{(\mu_i,q_i,s_i,o_i,f_i)\right\}_{i=1}^{M}
+$$
+
+其中:
+
+* $M$ 是当前场景中 Gaussian 的数量
+* $\mu_i\in\mathbb{R}^3$ 是第 $i$ 个 Gaussian 的中心
+* $q_i\in\mathbb{R}^4$ 是旋转四元数
+* $s_i\in\mathbb{R}^3$ 是各轴尺度
+* $o_i\in\mathbb{R}$ 是 opacity
+* $f_i$ 是颜色特征; 如果采用 SH, 通常有 $f_i\in\mathbb{R}^{3(L+1)^2}$; 如果不用 SH, 最简单时也可以把它看成 $f_i\in\mathbb{R}^3$
+
+所以渲染器本身可以写成:
+
+$$
+\mathrm{Render}_{\mathcal{G}}:(K,T_{w2c},H,W)\longrightarrow \hat I\in\mathbb{R}^{H\times W\times 3}
+$$
+
+---
+**整体流程**
+
+而一次训练前向过程则是:
+
+$$
+(K,T_{w2c},H,W,\mathcal{G})
+\rightarrow
+\{\mu_{c,i},\Sigma_{c,i}\}_{i=1}^{M}
+\rightarrow
+\{u_i,\Sigma_{2D,i}\}_{i=1}^{M}
+\rightarrow
+\hat I
+$$
+
+直观上就是:
+
+1. 先用多视角图像、位姿和内参把场景初始化成 Gaussian 场景
+2. 再把这些 Gaussian 从当前相机视角投影到像素平面, 得到渲染图像
+3. 最后拿渲染图和 GT 做损失, 反向更新 Gaussian 参数; 训练好后再渲染新视角图像
 
 
+## Step1 初始化成高斯场景
+
+3DGS 一开始把场景写成一堆显式的 3D Gaussian。
+
+**输入**
+
+训练集通常包含:
+
+* 图像张量可以记为 $\mathrm{images}\in\mathbb{R}^{N_v\times H\times W\times 3}$
+* 位姿张量可以记为 $\mathrm{poses}\in\mathbb{R}^{N_v\times 4\times 4}$
+* 内参张量可以记为 $\mathrm{intrinsics}\in\mathbb{R}^{N_v\times 3\times 3}$, 如果所有相机共享内参, 也可以直接记成 $K\in\mathbb{R}^{3\times 3}$
+
+单个视角的数据分别记为 $I_n\in\mathbb{R}^{H\times W\times 3}$、$T_{w2c}^{(n)}\in\mathbb{R}^{4\times 4}$ 和 $K_n\in\mathbb{R}^{3\times 3}$。
+
+原始 3DGS 实践里通常会先用 COLMAP / SfM 得到稀疏点云, 其中点坐标可以记为 $\mathrm{points\_xyz}\in\mathbb{R}^{M_0\times 3}$, 点颜色可以记为 $\mathrm{points\_rgb}\in\mathbb{R}^{M_0\times 3}$。
+
+---
+**从稀疏点到 Gaussian**
+
+每个稀疏 3D 点都会初始化成一个 Gaussian。  
+批量看时, 高斯中心可以记为 $\mu\in\mathbb{R}^{M_0\times 3}$, 旋转可以记为 $q\in\mathbb{R}^{M_0\times 4}$, 尺度可以记为 $s\in\mathbb{R}^{M_0\times 3}$, 透明度可以记为 $o\in\mathbb{R}^{M_0\times 1}$, 颜色特征可以记为 $f\in\mathbb{R}^{M_0\times C_f}$。  
+如果采用 SH, 那么特征维度通常满足 $C_f=3(L+1)^2$。
+
+其中中心直接来自点云位置:
+
+$$
+\mu_i\in\mathbb{R}^3
+$$
+
+协方差由旋转和缩放参数化:
+
+$$
+\Sigma_i=R(q_i)S(s_i)S(s_i)^TR(q_i)^T
+\in\mathbb{R}^{3\times 3}
+$$
+
+所以批量的协方差也可以记为 $\Sigma\in\mathbb{R}^{M_0\times 3\times 3}$。  
+如果特征用 SH 表示颜色, 那么观察方向满足 $\mathbf{d}\in\mathbb{R}^3$, 并且颜色可以写成 $\mathbf{c}_i(\mathbf{d})\in\mathbb{R}^3$。
+
+---
+**输出**
+
+这一步结束后, 场景就从“稀疏点云”变成了“高斯场景表示”:
+
+$$
+\mathcal{G}_0=\left\{(\mu_i,q_i,s_i,o_i,f_i)\right\}_{i=1}^{M_0}
+$$
+
+## Step2 从高斯到像素
+
+观察变换 $\rightarrow$ 投影变换 $\rightarrow$ 视口变换 / splatting。
 
 
+**输入**
 
+训练时先取一个视角, 它对应的真值图像、内参和外参分别记为 $I_{gt}\in\mathbb{R}^{H\times W\times 3}$、$K\in\mathbb{R}^{3\times 3}$ 和 $T_{w2c}\in\mathbb{R}^{4\times 4}$。  
+同时取当前高斯场景参数 $\mu\in\mathbb{R}^{M\times 3}$、$\Sigma\in\mathbb{R}^{M\times 3\times 3}$、$o\in\mathbb{R}^{M\times 1}$ 和 $f\in\mathbb{R}^{M\times C_f}$。
 
+---
+**观察变换: 世界坐标到相机坐标**
 
+设当前外参满足 $T_{w2c}=[R|t]$, 其中 $R\in\mathbb{R}^{3\times 3}$, $t\in\mathbb{R}^{3}$。
 
+对单个 Gaussian, 中心和协方差会变成:
 
+$$
+\mu_{c,i}=R\mu_i+t
+\in\mathbb{R}^3
+$$
 
+$$
+\Sigma_{c,i}=R\Sigma_iR^T
+\in\mathbb{R}^{3\times 3}
+$$
+
+批量看时, 变换后的中心和协方差可以分别记为 $\mu_{\mathrm{cam}}\in\mathbb{R}^{M\times 3}$ 和 $\Sigma_{\mathrm{cam}}\in\mathbb{R}^{M\times 3\times 3}$。
+
+---
+**投影变换: 3D Gaussian 到 2D Gaussian**
+
+记
+
+$$
+\mu_{c,i}=(x_i,y_i,z_i)^T
+$$
+
+先做透视除法:
+
+$$
+x_i^{norm}=\frac{x_i}{z_i},\qquad
+y_i^{norm}=\frac{y_i}{z_i}
+$$
+
+再乘上内参得到像素坐标:
+
+$$
+u_i=f_x\frac{x_i}{z_i}+c_x,\qquad
+v_i=f_y\frac{y_i}{z_i}+c_y
+$$
+
+于是单个 Gaussian 在屏幕上的中心是:
+
+$$
+\mathbf{u}_i=(u_i,v_i)^T\in\mathbb{R}^2
+$$
+
+同时, 3D 协方差会近似投到 2D:
+
+$$
+J_i=
+\left.\frac{\partial \pi}{\partial \mathbf{x}}\right|_{\mu_{c,i}}
+\in\mathbb{R}^{2\times 3}
+$$
+
+$$
+\Sigma_{2D,i}=J_i\Sigma_{c,i}J_i^T
+\in\mathbb{R}^{2\times 2}
+$$
+
+批量看时, 投影后的屏幕中心可以记为 $\mathbf{u}\in\mathbb{R}^{M\times 2}$, 深度可以记为 $\mathbf{z}\in\mathbb{R}^{M\times 1}$, 对应的 2D 协方差可以记为 $\Sigma_{2D}\in\mathbb{R}^{M\times 2\times 2}$。
+
+---
+**Splatting 和 Alpha 合成**
+
+记某个像素位置为:
+
+$$
+\mathbf{p}=(u,v)^T\in\mathbb{R}^2
+$$
+
+那么单个 Gaussian 对这个像素的 2D 权重为:
+
+$$
+g_i(\mathbf{p})=
+\exp\left(
+-\frac{1}{2}
+(\mathbf{p}-\mathbf{u}_i)^T
+\Sigma_{2D,i}^{-1}
+(\mathbf{p}-\mathbf{u}_i)
+\right)
+$$
+
+再乘上 opacity:
+
+$$
+\alpha_i(\mathbf{p})=o_i\cdot g_i(\mathbf{p})
+$$
+
+对于同一个像素, 按深度从近到远排序后做 alpha blending:
+
+$$
+T_i(\mathbf{p})=\prod_{j<i}\left(1-\alpha_j(\mathbf{p})\right)
+$$
+
+$$
+\hat{\mathbf{C}}(\mathbf{p})=
+\sum_i
+T_i(\mathbf{p})\alpha_i(\mathbf{p})\mathbf{c}_i(\mathbf{d})
+\in\mathbb{R}^3
+$$
+
+把所有像素拼起来, 就得到渲染图像 $\hat I\in\mathbb{R}^{H\times W\times 3}$。
+
+---
+**输出**
+
+这一步的最终输出就是渲染图像 $\hat I\in\mathbb{R}^{H\times W\times 3}$。
+
+也就是说, 3DGS 的前向其实就是:  
+一堆 3D Gaussian $\rightarrow$ 投影成 2D 椭圆 $\rightarrow$ 把颜色和透明度铺到像素上。
+
+---
+**Step3 训练与反向传播**
+
+前两步只是在说“怎么从场景渲染出图”;  
+这一步说的是“怎么把这些 Gaussian 学好”。
+
+---
+**输入**
+
+渲染图像记为 $\hat I\in\mathbb{R}^{H\times W\times 3}$, 真值图像记为 $I_{gt}\in\mathbb{R}^{H\times W\times 3}$。
+
+---
+**图像损失**
+
+原始 3DGS 常见地使用:
+
+$$
+\mathcal{L}=(1-\lambda)\mathcal{L}_{L1}+\lambda\mathcal{L}_{D-SSIM}
+$$
+
+也就是同时看:
+
+* 像素级颜色差异
+* 结构相似性
+
+---
+**反向传播更新参数**
+
+梯度会回传到高斯参数 $\mu\in\mathbb{R}^{M\times 3}$、$q\in\mathbb{R}^{M\times 4}$、$s\in\mathbb{R}^{M\times 3}$、$o\in\mathbb{R}^{M\times 1}$ 和 $f\in\mathbb{R}^{M\times C_f}$。
+
+所以训练本质上是在不断调整:
+
+* Gaussian 放在哪里
+* Gaussian 有多大、朝向如何
+* Gaussian 有多透明
+* 从不同方向看它应该是什么颜色
+
+---
+**Densify 和 Prune**
+
+3DGS 的另一个关键点是 Gaussian 数量不是固定的。
+
+训练过程中通常会:
+
+* **densify / split / clone**: 在误差大、细节不够的地方增加 Gaussian
+* **prune**: 删除 opacity 太小、贡献太弱的 Gaussian
+
+所以随着训练进行:
+
+* 一开始是较粗的表示
+* 后面会逐渐长出更多、更细的 Gaussian
+
+---
+**输出**
+
+最终得到训练好的场景表示:
+
+$$
+\mathcal{G}^\*=\left\{(\mu_i,q_i,s_i,o_i,f_i)\right\}_{i=1}^{M^\*}
+$$
+
+训练结束后, 如果给一个新的目标相机 $K_{new}\in\mathbb{R}^{3\times 3}$、$T_{w2c,new}\in\mathbb{R}^{4\times 4}$ 和目标分辨率 $(H_{new},W_{new})$, 那么重复 Step2 就可以得到 $I_{new}\in\mathbb{R}^{H_{new}\times W_{new}\times 3}$。
+
+这就是 3DGS 的 novel view synthesis。
 
 
 

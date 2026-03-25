@@ -10,3 +10,8 @@
 ## 3D Recon
 
 * [Page 2](3d-recon/page-2.md)
+
+## AIGC
+
+* [Diffusion](aigc/diffusion.md)
+* [DiT](aigc/DiT.md)
