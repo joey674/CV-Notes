@@ -1,13 +1,12 @@
 # 3DGS
-<!-- ############################### -->
-## referrence
-https://www.bilibili.com/video/BV1zi421v7Dr/?spm_id_from=333.788.recommend_more_video.-1&trackid=web_related_0.router-related-2479604-6dnm7.1773423875441.190&vd_source=84ae2dc9d7d25fd8637002a2bb332c48
 
-<!-- ############################### -->
+## referrence
+
+https://www.bilibili.com/video/BV1zi421v7Dr/?spm\_id\_from=333.788.recommend\_more\_video.-1\&trackid=web\_related\_0.router-related-2479604-6dnm7.1773423875441.190\&vd\_source=84ae2dc9d7d25fd8637002a2bb332c48
+
 ## background
 
-**主动/被动渲染**
-NeRF 中的 ray-casting 更接近一种被动渲染: 已知相机位姿后, 从像素出发发射射线, 再沿着射线去查询场景在这些位置的颜色和密度;  
+**主动/被动渲染** NeRF 中的 ray-casting 更接近一种被动渲染: 已知相机位姿后, 从像素出发发射射线, 再沿着射线去查询场景在这些位置的颜色和密度;\
 也就是说, 它的前向过程是:
 
 $$
@@ -27,12 +26,13 @@ $$
 * NeRF: 从像素出发, 找哪些 3D 位置会影响这个像素
 * 3DGS: 从场景中的每个高斯出发, 看它会影响哪些像素
 
----
+***
+
 **泼溅**
 
 这里的 splatting 可以先把它想成一种"往屏幕上盖印章"的过程。
 
-如果场景里只有一个 3D 点, 投影到图像上往往只对应一个离散像素, 这会很稀疏, 也不稳定;  
+如果场景里只有一个 3D 点, 投影到图像上往往只对应一个离散像素, 这会很稀疏, 也不稳定;\
 而 3DGS 不是把一个元素当作无限小的点, 而是把它当作一个有空间范围的 3D Gaussian。这样它投影到 2D 后, 就不是一个点, 而是一个 2D 椭圆形的影响区域。
 
 于是渲染时做的事情就是:
@@ -42,7 +42,7 @@ $$
 3. 对它覆盖到的像素, 按高斯权重分配颜色和透明度
 4. 按深度顺序把多个高斯做 alpha blending
 
-这就是 splatting 的核心:  
+这就是 splatting 的核心:\
 不是"一个像素只对应一个点", 而是"一个高斯把自己的影响软性地分摊到周围一片像素上"。
 
 这个表示有几个直接好处:
@@ -51,10 +51,11 @@ $$
 * 比 NeRF 沿射线密集采样更高效
 * 对反向传播友好, 因为投影、权重、合成过程都可以做成可微
 
-所以 3DGS 常被理解成:  
+所以 3DGS 常被理解成:\
 把 3D 场景表示成一组可以被直接 rasterize 的软粒子, 再用可微 splatting 来渲染。
 
----
+***
+
 **3D高斯椭球性质**
 
 Gaussian 椭球有非常好的数学性质。
@@ -80,9 +81,7 @@ $$
 * $\Sigma$ 是协方差矩阵, 决定高斯的尺度、拉伸和朝向
 * $|\Sigma|$ 是协方差矩阵的行列式
 * $\mathbf{x}$ 是某个点的3维位置; 如果代入这个点到高斯分布里, 就能得到这个这个高斯分布对这个点的影响力 $G(\mathbf{x})$
-* $G(\mathbf{x})$ 在 $[0,1]$ 之间分布, 代表影响; 比如 $\mathbf{x}$ 离高斯椭球很近, 那 $G(\mathbf{x})$ 就会接近1
-
-
+* $G(\mathbf{x})$ 在 $\[0,1]$ 之间分布, 代表影响; 比如 $\mathbf{x}$ 离高斯椭球很近, 那 $G(\mathbf{x})$ 就会接近1
 
 **仿射变换后仍然保持高斯形式**
 
@@ -106,28 +105,20 @@ $$
 \mathbf{y}\sim\mathcal{N}(A\mu+\mathbf{b},A\Sigma A^T)
 $$
 
-<!-- **从 3D 降到 2D 后仍然是高斯**
+***
 
-另一个非常重要的性质是:  
-高斯在做边缘化、投影近似、线性映射之后, 仍然保持高斯形式。
-
-直观上说:
-
-* 一个 3D Gaussian 在屏幕空间会变成一个 2D Gaussian
-* 也就是从一个 3D 椭球, 变成图像平面上的一个 2D 椭圆 -->
-
----
 **结论**
 
 * **高斯可以很好的表示一个3维椭球**
 * **任何高斯(椭球)都可以看作是由标准高斯(球)通过仿射变换($A\mathbf{x}+\mathbf{b}$)得到**
 
----
+***
+
 **仿射变换与旋转/缩放矩阵的联系**
 
 **从标准高斯出发**
 
-先从最简单的标准高斯出发, 可以理解为一个处于原点位置的标准大小的圆球: 
+先从最简单的标准高斯出发, 可以理解为一个处于原点位置的标准大小的圆球:
 
 $$
 \mathbf{x}\sim\mathcal{N}(\mathbf{0},I)
@@ -184,7 +175,7 @@ $$
 
 这就是 3DGS 里常见的协方差参数化形式。
 
-如果 $S$ 是对角矩阵, 那么它通常表示沿主轴方向的缩放;  
+如果 $S$ 是对角矩阵, 那么它通常表示沿主轴方向的缩放;\
 再乘上 $R$ 之后, 就把这个轴对齐的椭球旋转到了任意方向。
 
 **结论**
@@ -200,57 +191,32 @@ $$
 
 然后再把它们组合成协方差矩阵。
 
----
+***
+
 **结论**
 
-* **高斯可以很好的表示一个3维椭球; 高斯均值表示椭球中心, 协方差矩阵显式表示旋转和缩放;** 
+* **高斯可以很好的表示一个3维椭球; 高斯均值表示椭球中心, 协方差矩阵显式表示旋转和缩放;**
 * **这样在任意位置, 任意形状的椭球, 用高斯就可以完全表示**
 
+***
 
-<!-- ############################### -->
+**球谐函数表达颜色**
+
+<figure><img src="../.gitbook/assets/{B08F76CA-880D-403F-B12F-2687EF2699EA}.png" alt=""><figcaption></figcaption></figure>
+
 ## Overview
+
 可以把 3DGS 分成两个层次来看:
 
 1. **训练阶段**: 用多视角图片和相机参数, 学到一组能够表示场景的 3D Gaussians
 2. **渲染阶段**: 给定一个目标相机, 把这些 3D Gaussians 投影到 2D 图像平面, 再 splat 成最终图像
 
-如果把训练数据写成一个数据集:
+<figure><img src="../.gitbook/assets/{902ADBE7-C353-4D6C-90B2-5AB3840BA6C6}.png" alt=""><figcaption></figcaption></figure>
 
-$$
-\mathcal{D}=\left\{(I_n,K_n,T_{w2c}^{(n)})\right\}_{n=1}^{N_v}
-$$
+和生成点云 渲染点云类似; 只是这里我们的点云比较不一样,需要特殊的获取方法(通过反向传播训练, 但不是深度学习的方式),以及特殊的渲染方法;&#x20;
 
-其中:
+***
 
-* $N_v$ 是视角数量
-* 第 $n$ 张 RGB 图像记为 $I_n\in\mathbb{R}^{H_n\times W_n\times 3}$
-* 相机内参记为 $K_n\in\mathbb{R}^{3\times 3}$
-* 世界坐标到相机坐标的外参记为 $T_{w2c}^{(n)}\in\mathbb{R}^{4\times 4}$
-
-如果所有图片分辨率一致, 整个图像张量也可以记成 $\mathrm{images}\in\mathbb{R}^{N_v\times H\times W\times 3}$。
-
-3DGS 学到的场景表示可以写成:
-
-$$
-\mathcal{G}=\left\{(\mu_i,q_i,s_i,o_i,f_i)\right\}_{i=1}^{M}
-$$
-
-其中:
-
-* $M$ 是当前场景中 Gaussian 的数量
-* $\mu_i\in\mathbb{R}^3$ 是第 $i$ 个 Gaussian 的中心
-* $q_i\in\mathbb{R}^4$ 是旋转四元数
-* $s_i\in\mathbb{R}^3$ 是各轴尺度
-* $o_i\in\mathbb{R}$ 是 opacity
-* $f_i$ 是颜色特征; 如果采用 SH, 通常有 $f_i\in\mathbb{R}^{3(L+1)^2}$; 如果不用 SH, 最简单时也可以把它看成 $f_i\in\mathbb{R}^3$
-
-所以渲染器本身可以写成:
-
-$$
-\mathrm{Render}_{\mathcal{G}}:(K,T_{w2c},H,W)\longrightarrow \hat I\in\mathbb{R}^{H\times W\times 3}
-$$
-
----
 **整体流程**
 
 而一次训练前向过程则是:
@@ -271,7 +237,6 @@ $$
 2. 再把这些 Gaussian 从当前相机视角投影到像素平面, 得到渲染图像
 3. 最后拿渲染图和 GT 做损失, 反向更新 Gaussian 参数; 训练好后再渲染新视角图像
 
-
 ## Step1 初始化成高斯场景
 
 3DGS 一开始把场景写成一堆显式的 3D Gaussian。
@@ -280,20 +245,21 @@ $$
 
 训练集通常包含:
 
-* 图像张量可以记为 $\mathrm{images}\in\mathbb{R}^{N_v\times H\times W\times 3}$
-* 位姿张量可以记为 $\mathrm{poses}\in\mathbb{R}^{N_v\times 4\times 4}$
-* 内参张量可以记为 $\mathrm{intrinsics}\in\mathbb{R}^{N_v\times 3\times 3}$, 如果所有相机共享内参, 也可以直接记成 $K\in\mathbb{R}^{3\times 3}$
+* 图像张量可以记为 $\mathrm{images}\in\mathbb{R}^{N\_v\times H\times W\times 3}$
+* 位姿张量可以记为 $\mathrm{poses}\in\mathbb{R}^{N\_v\times 4\times 4}$
+* 内参张量可以记为 $\mathrm{intrinsics}\in\mathbb{R}^{N\_v\times 3\times 3}$, 如果所有相机共享内参, 也可以直接记成 $K\in\mathbb{R}^{3\times 3}$
 
-单个视角的数据分别记为 $I_n\in\mathbb{R}^{H\times W\times 3}$、$T_{w2c}^{(n)}\in\mathbb{R}^{4\times 4}$ 和 $K_n\in\mathbb{R}^{3\times 3}$。
+单个视角的数据分别记为 $I\_n\in\mathbb{R}^{H\times W\times 3}$、$T\_{w2c}^{(n)}\in\mathbb{R}^{4\times 4}$ 和 $K\_n\in\mathbb{R}^{3\times 3}$。
 
-原始 3DGS 实践里通常会先用 COLMAP / SfM 得到稀疏点云, 其中点坐标可以记为 $\mathrm{points\_xyz}\in\mathbb{R}^{M_0\times 3}$, 点颜色可以记为 $\mathrm{points\_rgb}\in\mathbb{R}^{M_0\times 3}$。
+原始 3DGS 实践里通常会先用 COLMAP / SfM 得到稀疏点云, 其中点坐标可以记为 $\mathrm{points\_xyz}\in\mathbb{R}^{M\_0\times 3}$, 点颜色可以记为 $\mathrm{points\_rgb}\in\mathbb{R}^{M\_0\times 3}$。
 
----
+***
+
 **从稀疏点到 Gaussian**
 
-每个稀疏 3D 点都会初始化成一个 Gaussian。  
-批量看时, 高斯中心可以记为 $\mu\in\mathbb{R}^{M_0\times 3}$, 旋转可以记为 $q\in\mathbb{R}^{M_0\times 4}$, 尺度可以记为 $s\in\mathbb{R}^{M_0\times 3}$, 透明度可以记为 $o\in\mathbb{R}^{M_0\times 1}$, 颜色特征可以记为 $f\in\mathbb{R}^{M_0\times C_f}$。  
-如果采用 SH, 那么特征维度通常满足 $C_f=3(L+1)^2$。
+每个稀疏 3D 点都会初始化成一个 Gaussian。\
+批量看时, 高斯中心可以记为 $\mu\in\mathbb{R}^{M\_0\times 3}$, 旋转可以记为 $q\in\mathbb{R}^{M\_0\times 4}$, 尺度可以记为 $s\in\mathbb{R}^{M\_0\times 3}$, 透明度可以记为 $o\in\mathbb{R}^{M\_0\times 1}$, 颜色特征可以记为 $f\in\mathbb{R}^{M\_0\times C\_f}$。\
+如果采用 SH, 那么特征维度通常满足 $C\_f=3(L+1)^2$。
 
 其中中心直接来自点云位置:
 
@@ -308,10 +274,11 @@ $$
 \in\mathbb{R}^{3\times 3}
 $$
 
-所以批量的协方差也可以记为 $\Sigma\in\mathbb{R}^{M_0\times 3\times 3}$。  
-如果特征用 SH 表示颜色, 那么观察方向满足 $\mathbf{d}\in\mathbb{R}^3$, 并且颜色可以写成 $\mathbf{c}_i(\mathbf{d})\in\mathbb{R}^3$。
+所以批量的协方差也可以记为 $\Sigma\in\mathbb{R}^{M\_0\times 3\times 3}$。\
+如果特征用 SH 表示颜色, 那么观察方向满足 $\mathbf{d}\in\mathbb{R}^3$, 并且颜色可以写成 $\mathbf{c}\_i(\mathbf{d})\in\mathbb{R}^3$。
 
----
+***
+
 **输出**
 
 这一步结束后, 场景就从“稀疏点云”变成了“高斯场景表示”:
@@ -324,16 +291,16 @@ $$
 
 观察变换 $\rightarrow$ 投影变换 $\rightarrow$ 视口变换 / splatting。
 
-
 **输入**
 
-训练时先取一个视角, 它对应的真值图像、内参和外参分别记为 $I_{gt}\in\mathbb{R}^{H\times W\times 3}$、$K\in\mathbb{R}^{3\times 3}$ 和 $T_{w2c}\in\mathbb{R}^{4\times 4}$。  
-同时取当前高斯场景参数 $\mu\in\mathbb{R}^{M\times 3}$、$\Sigma\in\mathbb{R}^{M\times 3\times 3}$、$o\in\mathbb{R}^{M\times 1}$ 和 $f\in\mathbb{R}^{M\times C_f}$。
+训练时先取一个视角, 它对应的真值图像、内参和外参分别记为 $I\_{gt}\in\mathbb{R}^{H\times W\times 3}$、$K\in\mathbb{R}^{3\times 3}$ 和 $T\_{w2c}\in\mathbb{R}^{4\times 4}$。\
+同时取当前高斯场景参数 $\mu\in\mathbb{R}^{M\times 3}$、$\Sigma\in\mathbb{R}^{M\times 3\times 3}$、$o\in\mathbb{R}^{M\times 1}$ 和 $f\in\mathbb{R}^{M\times C\_f}$。
 
----
+***
+
 **观察变换: 世界坐标到相机坐标**
 
-设当前外参满足 $T_{w2c}=[R|t]$, 其中 $R\in\mathbb{R}^{3\times 3}$, $t\in\mathbb{R}^{3}$。
+设当前外参满足 $T\_{w2c}=\[R|t]$, 其中 $R\in\mathbb{R}^{3\times 3}$, $t\in\mathbb{R}^{3}$。
 
 对单个 Gaussian, 中心和协方差会变成:
 
@@ -347,9 +314,10 @@ $$
 \in\mathbb{R}^{3\times 3}
 $$
 
-批量看时, 变换后的中心和协方差可以分别记为 $\mu_{\mathrm{cam}}\in\mathbb{R}^{M\times 3}$ 和 $\Sigma_{\mathrm{cam}}\in\mathbb{R}^{M\times 3\times 3}$。
+批量看时, 变换后的中心和协方差可以分别记为 $\mu\_{\mathrm{cam\}}\in\mathbb{R}^{M\times 3}$ 和 $\Sigma\_{\mathrm{cam\}}\in\mathbb{R}^{M\times 3\times 3}$。
 
----
+***
+
 **投影变换: 3D Gaussian 到 2D Gaussian**
 
 记
@@ -391,9 +359,10 @@ $$
 \in\mathbb{R}^{2\times 2}
 $$
 
-批量看时, 投影后的屏幕中心可以记为 $\mathbf{u}\in\mathbb{R}^{M\times 2}$, 深度可以记为 $\mathbf{z}\in\mathbb{R}^{M\times 1}$, 对应的 2D 协方差可以记为 $\Sigma_{2D}\in\mathbb{R}^{M\times 2\times 2}$。
+批量看时, 投影后的屏幕中心可以记为 $\mathbf{u}\in\mathbb{R}^{M\times 2}$, 深度可以记为 $\mathbf{z}\in\mathbb{R}^{M\times 1}$, 对应的 2D 协方差可以记为 $\Sigma\_{2D}\in\mathbb{R}^{M\times 2\times 2}$。
 
----
+***
+
 **Splatting 和 Alpha 合成**
 
 记某个像素位置为:
@@ -435,26 +404,30 @@ $$
 
 把所有像素拼起来, 就得到渲染图像 $\hat I\in\mathbb{R}^{H\times W\times 3}$。
 
----
+***
+
 **输出**
 
 这一步的最终输出就是渲染图像 $\hat I\in\mathbb{R}^{H\times W\times 3}$。
 
-也就是说, 3DGS 的前向其实就是:  
+也就是说, 3DGS 的前向其实就是:\
 一堆 3D Gaussian $\rightarrow$ 投影成 2D 椭圆 $\rightarrow$ 把颜色和透明度铺到像素上。
 
----
+***
+
 **Step3 训练与反向传播**
 
-前两步只是在说“怎么从场景渲染出图”;  
+前两步只是在说“怎么从场景渲染出图”;\
 这一步说的是“怎么把这些 Gaussian 学好”。
 
----
+***
+
 **输入**
 
-渲染图像记为 $\hat I\in\mathbb{R}^{H\times W\times 3}$, 真值图像记为 $I_{gt}\in\mathbb{R}^{H\times W\times 3}$。
+渲染图像记为 $\hat I\in\mathbb{R}^{H\times W\times 3}$, 真值图像记为 $I\_{gt}\in\mathbb{R}^{H\times W\times 3}$。
 
----
+***
+
 **图像损失**
 
 原始 3DGS 常见地使用:
@@ -468,10 +441,11 @@ $$
 * 像素级颜色差异
 * 结构相似性
 
----
+***
+
 **反向传播更新参数**
 
-梯度会回传到高斯参数 $\mu\in\mathbb{R}^{M\times 3}$、$q\in\mathbb{R}^{M\times 4}$、$s\in\mathbb{R}^{M\times 3}$、$o\in\mathbb{R}^{M\times 1}$ 和 $f\in\mathbb{R}^{M\times C_f}$。
+梯度会回传到高斯参数 $\mu\in\mathbb{R}^{M\times 3}$、$q\in\mathbb{R}^{M\times 4}$、$s\in\mathbb{R}^{M\times 3}$、$o\in\mathbb{R}^{M\times 1}$ 和 $f\in\mathbb{R}^{M\times C\_f}$。
 
 所以训练本质上是在不断调整:
 
@@ -480,7 +454,8 @@ $$
 * Gaussian 有多透明
 * 从不同方向看它应该是什么颜色
 
----
+***
+
 **Densify 和 Prune**
 
 3DGS 的另一个关键点是 Gaussian 数量不是固定的。
@@ -495,7 +470,8 @@ $$
 * 一开始是较粗的表示
 * 后面会逐渐长出更多、更细的 Gaussian
 
----
+***
+
 **输出**
 
 最终得到训练好的场景表示:
@@ -504,10 +480,5 @@ $$
 \mathcal{G}^\*=\left\{(\mu_i,q_i,s_i,o_i,f_i)\right\}_{i=1}^{M^\*}
 $$
 
-训练结束后, 如果给一个新的目标相机 $K_{new}\in\mathbb{R}^{3\times 3}$、$T_{w2c,new}\in\mathbb{R}^{4\times 4}$ 和目标分辨率 $(H_{new},W_{new})$, 那么重复 Step2 就可以得到 $I_{new}\in\mathbb{R}^{H_{new}\times W_{new}\times 3}$。
-
-这就是 3DGS 的 novel view synthesis。
-
-
-
+训练结束后, 如果给一个新的目标相机 $K\_{new}\in\mathbb{R}^{3\times 3}$、$T\_{w2c,new}\in\mathbb{R}^{4\times 4}$ 和目标分辨率 $(H\_{new},W\_{new})$, 那么重复 Step2 就可以得到 $I\_{new}\in\mathbb{R}^{H\_{new}\times W\_{new}\times 3}$。
 
