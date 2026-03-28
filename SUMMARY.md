@@ -1,12 +1,12 @@
 # Table of contents
 
+* [README](README.md)
+
 ## NVS
 
 * [3DGS](nvs/3dgs.md)
 * [NeRF](nvs/nerf.md)
 * [3DGS-DA3](nvs/3dgs-da3.md)
-
-## 3D Recon
 
 ## AIGC
 
@@ -19,3 +19,13 @@
 * [opencv](py-lib/opencv.md)
 * [open3d](py-lib/open3d.md)
 * [torch](py-lib/torch.md)
+
+## Multimodal&#x20;
+
+***
+
+* [CLIP](clip.md)
+
+## Deep learning
+
+* [Loss](deep-learning/loss.md)

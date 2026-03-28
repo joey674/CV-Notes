@@ -1,9 +1,8 @@
 # DiT
 
-<!-- ############################### -->
 ## Overview
 
-DiT 的全称是 **Diffusion Transformer**。  
+DiT 的全称是 **Diffusion Transformer**。\
 它不是一个新的 diffusion 训练框架, 而是把 diffusion model 里面原本常见的 **U-Net denoiser** 换成了 **Transformer denoiser**。
 
 所以如果把整个系统看成:
@@ -17,7 +16,8 @@ $$
 * 传统 latent diffusion: 常用 U-Net
 * DiT: 改成 ViT 风格的 Transformer backbone
 
----
+***
+
 **DiT 最核心的想法**
 
 不是直接对像素图片做 patchify, 而是先沿用 latent diffusion 的做法:
@@ -38,14 +38,15 @@ $$
 
 其中:
 
-* $\mathbf{x}_0$: 原始图像
+* $\mathbf{x}\_0$: 原始图像
 * $E$: VAE encoder
-* $\mathbf{z}_0$: 干净 latent
-* $\mathbf{z}_t$: 第 $t$ 步的 noisy latent
+* $\mathbf{z}\_0$: 干净 latent
+* $\mathbf{z}\_t$: 第 $t$ 步的 noisy latent
 * $\mathbf{c}$: 条件信息, 在原始 DiT 论文里主要是类别标签 $y$
 * $\hat{\epsilon}$: 预测噪声
 
----
+***
+
 **和 U-Net diffusion 最重要的区别**
 
 U-Net 更像:
@@ -73,11 +74,12 @@ $$
 \text{Unpatchify}
 $$
 
----
+***
+
 **整体流程**
 
-1. 输入图像先被 VAE 编码成 latent $\mathbf{z}_0$
-2. 给 latent 加噪得到 $\mathbf{z}_t$
+1. 输入图像先被 VAE 编码成 latent $\mathbf{z}\_0$
+2. 给 latent 加噪得到 $\mathbf{z}\_t$
 3. 把 noisy latent 切成 patch, 每个 patch 映射成 token
 4. 加上 2D position embedding
 5. 把 timestep embedding 和 class embedding 合成条件向量 $\mathbf{c}$
@@ -85,7 +87,8 @@ $$
 7. 输出 token 再被线性映射回 patch 像素块
 8. unpatchify 回到 latent 形状, 得到 $\hat{\epsilon}$ 或 $(\hat{\epsilon},\hat{\sigma})$
 
----
+***
+
 **一个最常用的函数表达**
 
 在原始 DiT 里, backbone 可以写成:
@@ -102,24 +105,20 @@ $$
 
 也就是通道数会翻倍。
 
-<!-- ############################### -->
 ## Paper Figures
 
-<figure><img src="https://www.wpeebles.com/images/DiT/block.png" alt="DiT block designs"><figcaption>DiT 项目页里的核心结构图: 左边是整体 latent diffusion transformer, 右边比较了三种条件注入方式, 其中效果最好的是 adaLN-Zero。</figcaption></figure>
+<figure><img src="https://www.wpeebles.com/images/DiT/block.png" alt="DiT block designs"><figcaption><p>DiT 项目页里的核心结构图: 左边是整体 latent diffusion transformer, 右边比较了三种条件注入方式, 其中效果最好的是 adaLN-Zero。</p></figcaption></figure>
 
 ### 图 1 图解
 
-这张图最重要的其实不是“Transformer 能做 diffusion”,  
+这张图最重要的其实不是“Transformer 能做 diffusion”,\
 而是作者在比较: **条件信息应该怎么注入 Transformer block**。
 
 它对比了 3 种方案:
 
-1. `adaLN-Zero`
-   用条件向量去调制 LayerNorm 后的特征, 同时还控制残差分支的 gate
-2. `cross-attention`
-   像很多 text-to-image 模型那样, 通过 cross-attention 注入条件
-3. `in-context conditioning`
-   把条件也拼成 token, 直接跟图像 token 一起送进 Transformer
+1. `adaLN-Zero` 用条件向量去调制 LayerNorm 后的特征, 同时还控制残差分支的 gate
+2. `cross-attention` 像很多 text-to-image 模型那样, 通过 cross-attention 注入条件
+3. `in-context conditioning` 把条件也拼成 token, 直接跟图像 token 一起送进 Transformer
 
 论文结论是:
 
@@ -133,9 +132,9 @@ $$
 * 然后过很多个 DiT blocks
 * 最后线性映射并 reshape 回 latent 形状
 
----
+***
 
-<figure><img src="https://www.wpeebles.com/images/DiT/scaling.png" alt="DiT scaling results"><figcaption>DiT 项目页里的 scaling 图: 增大模型规模或增加 token 数量, 都会持续提升 FID。</figcaption></figure>
+<figure><img src="https://www.wpeebles.com/images/DiT/scaling.png" alt="DiT scaling results"><figcaption><p>DiT 项目页里的 scaling 图: 增大模型规模或增加 token 数量, 都会持续提升 FID。</p></figcaption></figure>
 
 ### 图 2 图解
 
@@ -146,7 +145,7 @@ $$
 * 模型变大: `S -> B -> L -> XL`
 * token 变多: patch size 从 `/8 -> /4 -> /2`
 
-这里 `/2` 的意思是 patch size = 2。  
+这里 `/2` 的意思是 patch size = 2。\
 patch 越小, token 越多, attention 计算量就越大。
 
 图里的现象非常一致:
@@ -160,9 +159,9 @@ patch 越小, token 越多, attention 计算量就越大。
 * 不是“参数多就一定最好”
 * 而是“计算量和 token 数一起放大”通常更有效
 
----
+***
 
-<figure><img src="../.gitbook/assets/dit-overview.svg" alt="DiT overview"><figcaption>按 DiT 论文和官方实现整理的流程示意图: noisy latent 先 patchify 成 token, 条件通过 adaLN-Zero 注入每个 block, 最后再 unpatchify 回 latent 噪声预测。</figcaption></figure>
+<figure><img src="/broken/files/34D6DM5ltzPKC0ktYBZM" alt="DiT overview"><figcaption><p>按 DiT 论文和官方实现整理的流程示意图: noisy latent 先 patchify 成 token, 条件通过 adaLN-Zero 注入每个 block, 最后再 unpatchify 回 latent 噪声预测。</p></figcaption></figure>
 
 ### 图 3 图解
 
@@ -179,10 +178,9 @@ patch 越小, token 越多, attention 计算量就越大。
 * U-Net diffusion 是“特征图 backbone”
 * DiT 是“token backbone”
 
-<!-- ############################### -->
 ## Step 1: Image 到 Latent
 
-DiT 论文本质上是一个 **latent diffusion model**。  
+DiT 论文本质上是一个 **latent diffusion model**。\
 所以它并不是直接对原始图像做 diffusion, 而是先过一个 VAE。
 
 ### 输入
@@ -232,11 +230,11 @@ $$
 
 * `z0`: $(N,4,h,w)$
 
----
+***
 
 ## Step 2: Forward Diffusion on Latent
 
-DiT 的加噪过程和普通 diffusion 没有本质区别,  
+DiT 的加噪过程和普通 diffusion 没有本质区别,\
 只是对象从图像 $\mathbf{x}$ 换成了 latent $\mathbf{z}$。
 
 ### 输入
@@ -261,7 +259,7 @@ $$
 
 模型真正看到的不是干净 latent, 而是:
 
-* noisy latent $\mathbf{z}_t$
+* noisy latent $\mathbf{z}\_t$
 * 当前 timestep $t$
 * 条件标签 $y$
 
@@ -275,12 +273,12 @@ $$
 
 * `zt`: $(N,4,h,w)$
 
----
+***
 
 ## Step 3: Patchify Latent
 
-这一步是 DiT 和 U-Net 最大的分叉点。  
-U-Net 直接把 latent 当二维 feature map 处理;  
+这一步是 DiT 和 U-Net 最大的分叉点。\
+U-Net 直接把 latent 当二维 feature map 处理;\
 DiT 则先把它切成 patch token。
 
 ### 输入
@@ -292,7 +290,7 @@ DiT 则先把它切成 patch token。
 
 * $C=4$
 * $h=w=32$
-* $p\in\{2,4,8\}$
+* $p\in{2,4,8}$
 
 ### 1. 切 patch
 
@@ -352,7 +350,7 @@ $$
 
 * `tokens`: $(N,T,D)$
 
----
+***
 
 ## Step 4: Timestep Embedding 和 Label Embedding
 
@@ -390,7 +388,7 @@ $$
 
 ### 3. CFG 训练里的 label dropout
 
-官方实现里 `LabelEmbedder` 还会做 label dropout。  
+官方实现里 `LabelEmbedder` 还会做 label dropout。\
 也就是训练时随机把一部分 label 替换成一个特殊的“空条件”标签:
 
 * 有条件样本学会按类别生成
@@ -416,11 +414,11 @@ $$
 
 * `c`: $(N,D)$
 
----
+***
 
 ## Step 5: DiT Block with adaLN-Zero
 
-这是 DiT 里最关键的一步。  
+这是 DiT 里最关键的一步。\
 如果只说一句话, 那就是:
 
 > DiT block 本质上是一个 ViT block, 但每层都会被条件向量 $\mathbf{c}$ 动态调制。
@@ -524,19 +522,19 @@ $$
 * 文本特征做 key/value
 * 用 cross-attention 注入条件
 
-而原始 DiT 论文场景是 class-conditional ImageNet,  
-条件本来就只是一个类别 embedding。  
+而原始 DiT 论文场景是 class-conditional ImageNet,\
+条件本来就只是一个类别 embedding。\
 这时候用 adaLN-Zero 会更轻量、也更自然。
 
 ### 输出
 
 * `x_out`: $(N,T,D)$
 
----
+***
 
 ## Step 6: Stacked Transformer Backbone
 
-单个 DiT block 只是一个条件化的 Transformer block。  
+单个 DiT block 只是一个条件化的 Transformer block。\
 真正的 backbone 是把它堆叠很多层。
 
 ### 输入
@@ -567,7 +565,7 @@ $$
 * 每个 token 都能和其他 token 做 self-attention
 * 全局上下文从一开始就可以直接交互
 
-它牺牲掉的是卷积/U-Net 的强归纳偏置,  
+它牺牲掉的是卷积/U-Net 的强归纳偏置,\
 换来的是:
 
 * 更统一的 backbone
@@ -594,19 +592,19 @@ $$
 * attention 越贵
 * 但性能往往越好
 
-这就是为什么 `XL/2` 会比 `XL/8` 强很多,  
+这就是为什么 `XL/2` 会比 `XL/8` 强很多,\
 即使两者参数规模很接近。
 
 ### 输出
 
 * `hidden_tokens`: $(N,T,D)$
 
----
+***
 
 ## Step 7: Final Layer 和 Unpatchify
 
-Transformer 主干输出的还是 token。  
-但 diffusion 训练目标要求我们输出和 latent 同形状的噪声图。  
+Transformer 主干输出的还是 token。\
+但 diffusion 训练目标要求我们输出和 latent 同形状的噪声图。\
 所以最后必须把 token 重新拼回二维 latent。
 
 ### 输入
@@ -633,8 +631,8 @@ $$
 
 其中:
 
-* 如果只预测噪声, $C_{out}=C$
-* 如果同时预测噪声和方差, $C_{out}=2C$
+* 如果只预测噪声, $C\_{out}=C$
+* 如果同时预测噪声和方差, $C\_{out}=2C$
 
 批量后:
 
@@ -660,12 +658,12 @@ $$
 
 * `eps_hat` 或 `[eps_hat, sigma_hat]`
 
----
+***
 
 ## Step 8: Training Objective
 
-DiT 的训练目标并没有发明一套新的 diffusion loss。  
-它继承的仍然是 latent diffusion / DDPM 这条路线。  
+DiT 的训练目标并没有发明一套新的 diffusion loss。\
+它继承的仍然是 latent diffusion / DDPM 这条路线。\
 真正变的是 **denoiser 参数化方式**。
 
 ### 输入
@@ -703,14 +701,14 @@ L=
 \right]
 $$
 
-如果模型还学习方差, 训练时会包含相应的 variance 项或 hybrid objective。  
+如果模型还学习方差, 训练时会包含相应的 variance 项或 hybrid objective。\
 但对理解 DiT 主干本身来说, 抓住“它是一个 conditional denoiser”就够了。
 
 ### 输出
 
 * `loss`: 标量
 
----
+***
 
 ## Step 9: Classifier-Free Guidance
 
@@ -747,11 +745,11 @@ $$
 * scale 更大: 类别一致性更强
 * 但也可能让样本多样性下降、图像更僵
 
----
+***
 
 ## Step 10: Model Scaling
 
-DiT 论文很重要的一部分其实不是“Transformer 也能做 diffusion”,  
+DiT 论文很重要的一部分其实不是“Transformer 也能做 diffusion”,\
 而是它系统地展示了 DiT 的 scaling 行为。
 
 ### 1. 模型家族
@@ -803,7 +801,7 @@ DiT 论文很重要的一部分其实不是“Transformer 也能做 diffusion”
 
 * **forward-pass complexity / GFLOPs** 比单看参数量更能解释性能变化
 
----
+***
 
 ## DiT 和 U-Net 的对比
 
@@ -839,7 +837,7 @@ DiT 论文很重要的一部分其实不是“Transformer 也能做 diffusion”
 * 必须依赖 latent 空间来压低计算成本
 * 相比卷积, 归纳偏置更弱
 
----
+***
 
 ## 最常用的几个公式放在一起
 
@@ -902,7 +900,6 @@ $$
 s(\hat{\epsilon}_{cond}-\hat{\epsilon}_{uncond})
 $$
 
-<!-- ############################### -->
 ## 一句话总结
 
 DiT 的本质可以理解成:
