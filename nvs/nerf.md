@@ -1,4 +1,4 @@
-# NeRF
+# NeRF(完结)
 ref: 
 1. https://www.bilibili.com/video/BV1dpLWzUE7K/?spm_id_from=333.1387.homepage.video_card.click&vd_source=84ae2dc9d7d25fd8637002a2bb332c48
 2. https://www.bilibili.com/video/BV1CC411V7oq/?spm_id_from=333.1387.upload.video_card.click&vd_source=84ae2dc9d7d25fd8637002a2bb332c48
@@ -39,7 +39,7 @@ $$
 ### 整体流程
 
 1. 相机参数 + 像素网格 $\rightarrow$ 射线
-2. 沿射线做 coarse 采样
+2. 沿射线做 coarse 粗糙采样
 3. 对采样点位置和方向做位置编码
 4. coarse MLP 预测每个采样点的 $(\mathbf{c},\sigma)$
 5. 根据 coarse 网络算出的权重分布，重点采样更可能有表面的区域
@@ -278,7 +278,7 @@ $$
 * 位置编码频率数 $L_x=10$
 * 方向编码频率数 $L_d=4$
 
----
+### 2. 位置向量编码
 
 对 3D点位置向量 $\mathbf{x}=(x_1,x_2,x_3)$，逐维编码后拼接：
 
@@ -306,8 +306,8 @@ x_3,\sin(2^0x_3),\cos(2^0x_3),\dots,\sin(2^{L_x-1}x_3),\cos(2^{L_x-1}x_3)
 \Big]
 $$
 
----
 
+### 3. 方向向量编码
 同理方向编码：
 
 $$
