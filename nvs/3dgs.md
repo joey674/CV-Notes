@@ -235,7 +235,6 @@ $$
 \mathrm{Render}_{\mathcal{G}}:(K,T_{w2c},H,W)\longrightarrow \hat I\in\mathbb{R}^{H\times W\times 3}
 $$
 
----
 **整体流程**
 
 而一次训练前向过程则是:
@@ -256,7 +255,7 @@ $$
 2. 再把这些 Gaussian 从当前相机视角投影到像素平面, 得到渲染图像
 3. 最后拿渲染图和 GT 做损失, 反向更新 Gaussian 参数; 训练好后再渲染新视角图像
 
-
+---
 ## Step1 初始化成高斯场景
 
 3DGS 一开始把场景写成一堆显式的 3D Gaussian。
@@ -273,7 +272,7 @@ $$
 
 原始 3DGS 实践里通常会先用 COLMAP / SfM 得到稀疏点云, 其中点坐标可以记为 $\mathrm{points\_xyz}\in\mathbb{R}^{M_0\times 3}$, 点颜色可以记为 $\mathrm{points\_rgb}\in\mathbb{R}^{M_0\times 3}$。
 
----
+
 **从稀疏点到 Gaussian**
 
 每个稀疏 3D 点都会初始化成一个 Gaussian。  
@@ -295,7 +294,7 @@ $$
 所以批量的协方差也可以记为 $\Sigma\in\mathbb{R}^{M_0\times 3\times 3}$。  
 如果特征用 SH 表示颜色, 那么观察方向满足 $\mathbf{d}\in\mathbb{R}^3$, 并且颜色可以写成 $\mathbf{c}_i(\mathbf{d})\in\mathbb{R}^3$。
 
----
+
 **输出**
 
 这一步结束后, 场景就从“稀疏点云”变成了“高斯场景表示”:
@@ -307,6 +306,7 @@ $$
 ## Step2 从高斯到像素
 
 观察变换 $\rightarrow$ 投影变换 $\rightarrow$ 视口变换 / splatting。
+<figure><img src="/nvs/assets/transformation.png" alt=""><figcaption></figcaption></figure>
 
 
 **输入**
@@ -314,7 +314,7 @@ $$
 训练时先取一个视角, 它对应的真值图像、内参和外参分别记为 $I_{gt}\in\mathbb{R}^{H\times W\times 3}$、$K\in\mathbb{R}^{3\times 3}$ 和 $T_{w2c}\in\mathbb{R}^{4\times 4}$。  
 同时取当前高斯场景参数 $\mu\in\mathbb{R}^{M\times 3}$、$\Sigma\in\mathbb{R}^{M\times 3\times 3}$、$o\in\mathbb{R}^{M\times 1}$ 和 $f\in\mathbb{R}^{M\times C_f}$。
 
----
+
 **观察变换: 世界坐标到相机坐标**
 
 设当前外参满足 $T_{w2c}=[R|t]$, 其中 $R\in\mathbb{R}^{3\times 3}$, $t\in\mathbb{R}^{3}$。
@@ -333,7 +333,7 @@ $$
 
 批量看时, 变换后的中心和协方差可以分别记为 $\mu_{\mathrm{cam}}\in\mathbb{R}^{M\times 3}$ 和 $\Sigma_{\mathrm{cam}}\in\mathbb{R}^{M\times 3\times 3}$。
 
----
+
 **投影变换: 3D Gaussian 到 2D Gaussian**
 
 记
@@ -343,6 +343,8 @@ $$
 $$
 
 那么它就是这个高斯中心在当前相机下的位置。
+
+---
 
 ### 3. 中心点的透视投影
 
@@ -517,18 +519,6 @@ $$
 * 一开始是较粗的表示
 * 后面会逐渐长出更多、更细的 Gaussian
 
----
-**输出**
-
-最终得到训练好的场景表示:
-
-$$
-\mathcal{G}^\*=\left\{(\mu_i,q_i,s_i,o_i,f_i)\right\}_{i=1}^{M^\*}
-$$
-
-训练结束后, 如果给一个新的目标相机 $K_{new}\in\mathbb{R}^{3\times 3}$、$T_{w2c,new}\in\mathbb{R}^{4\times 4}$ 和目标分辨率 $(H_{new},W_{new})$, 那么重复 Step2 就可以得到 $I_{new}\in\mathbb{R}^{H_{new}\times W_{new}\times 3}$。
-
-这就是 3DGS 的 novel view synthesis。
 
 
 

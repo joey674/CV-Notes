@@ -62,3 +62,40 @@ $$
 * 输入输出定义
 * 网络结构
 * 和 VGGT 的差异
+
+
+## 部署
+```bash
+conda create -n da3 python=3.10.19 -y
+conda activate da3
+
+python -m pip install --upgrade pip setuptools wheel
+
+python -m pip install \
+  "numpy<2" \
+  "torch==2.10.0" \
+  "torchvision==0.25.0" \
+  "xformers==0.0.35"
+
+conda install -y -c nvidia cuda-nvcc=12.8.93
+
+export CUDA_HOME=$CONDA_PREFIX
+export PATH=$CUDA_HOME/bin:$PATH
+unset LD_LIBRARY_PATH
+
+python -m pip install -e ".[app]"
+
+# 只编译特定版本gsplat
+export TORCH_CUDA_ARCH_LIST="8.9"
+env -u LD_LIBRARY_PATH python -m pip install --no-build-isolation \
+  "git+https://github.com/nerfstudio-project/gsplat.git@0b4dddf04cb687367602c01196913cde6a743d70"
+
+python - <<'PY'
+import torch, xformers
+print("torch:", torch.__version__)
+print("torch cuda:", torch.version.cuda)
+print("cuda available:", torch.cuda.is_available())
+print("xformers:", xformers.__version__)
+print("xformers cpp:", getattr(xformers, "_has_cpp_library", None))
+PY
+```
